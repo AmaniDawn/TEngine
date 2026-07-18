@@ -38,22 +38,7 @@ namespace Fantasy.Platform.Net
 		/// 获得SceneConfigData的实例
 		/// </summary>
 		public static SceneConfigData Instance { get; private set; }
-		/// <summary>
-		/// 初始化SceneConfig
-		/// </summary>
-		/// <param name="sceneConfigJson"></param>
-		public static void InitializeFromJson(string sceneConfigJson)
-		{
-			try
-			{
-				Instance = sceneConfigJson.Deserialize<SceneConfigData>();
-				Initialize();
-			}
-			catch (Exception e)
-			{
-				throw new InvalidOperationException($"SceneConfigData.Json format error {e.Message}");
-			}
-		}
+		
 		/// <summary>
 		/// 初始化SceneConfig
 		/// </summary>
@@ -67,6 +52,7 @@ namespace Fantasy.Platform.Net
 		{
 			foreach (var config in Instance.List)
 			{
+				config.InitializeSceneType();
 				config.Initialize();
 				Instance._configs.TryAdd(config.Id, config);
 				Instance._sceneConfigByProcess.Add(config.ProcessConfigId, config);
@@ -103,7 +89,7 @@ namespace Fantasy.Platform.Net
 				return sceneConfigInfo;
 			}
 
-			throw new FileNotFoundException($"WorldConfig not find {id} Id");
+			throw new FileNotFoundException($"SceneConfig not find {id} Id");
 		}
 
 		/// <summary>
@@ -212,6 +198,21 @@ namespace Fantasy.Platform.Net
 	    public void Initialize()
 	    {
 		    Address = IdFactoryHelper.RuntimeId(false, 0, Id, (byte)WorldConfigId, 0);
+	    }
+		
+	    internal void InitializeSceneType()
+	    {
+		    if (string.IsNullOrWhiteSpace(SceneTypeString))
+		    {
+			    throw new InvalidOperationException($"Scene {Id}: SceneTypeString cannot be null or empty");
+		    }
+
+		    if (!Scene.SceneTypeDictionary.TryGetValue(SceneTypeString, out var sceneType))
+		    {
+			    throw new InvalidOperationException($"Scene {Id}: SceneTypeString '{SceneTypeString}' is not defined in SceneTypeDictionary");
+		    }
+
+		    SceneType = sceneType;
 	    }
     }
 }

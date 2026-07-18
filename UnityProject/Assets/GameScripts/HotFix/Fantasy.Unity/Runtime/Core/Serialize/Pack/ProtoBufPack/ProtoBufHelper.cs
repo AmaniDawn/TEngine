@@ -73,6 +73,7 @@ namespace Fantasy.Serialize
                 ThreadScheduler.MainScheduler.ThreadSynchronizationContext.Post(() =>
                 {
                     InnerOnLoad(assemblyManifestId, protoBufDispatcherRegistrar);
+                    tcs.SetResult();
                 });
                 await tcs;
                 return;
@@ -177,7 +178,9 @@ namespace Fantasy.Serialize
         /// <inheritdoc/>
         public object Deserialize(Type type, MemoryStreamBuffer buffer)
         {
-            return _deserializes[type.TypeHandle](buffer);
+            var obj = _deserializes[type.TypeHandle](buffer);
+            OnReceiveMessage?.Invoke(type, obj);
+            return obj;
         }
 
         /// <inheritdoc/>
@@ -217,6 +220,7 @@ namespace Fantasy.Serialize
         /// <inheritdoc/>
         public void Serialize(Type type, object @object, IBufferWriter<byte> buffer)
         {
+            OnSendMessage?.Invoke(type, @object);
             _serializes[type.TypeHandle](buffer, @object);
         }
 
@@ -271,8 +275,17 @@ namespace Fantasy.Serialize
             }
 
             _serializes[type.TypeHandle](_cachedStream, @object);
+            _cachedStream.Position = 0;
             return _deserializes[type.TypeHandle](_cachedStream);
         }
+
+        #endregion
+
+        #region ProtocolLogHelper
+
+        public static Action<Type, object> OnReceiveMessage { get; set; }
+
+        public static Action<Type, object> OnSendMessage { get; set; }
 
         #endregion
     }

@@ -53,10 +53,10 @@ namespace Fantasy.Database
         {
             try
             {
-                Log.Info($"dbName:{dbName} Initialize the db database and connect to the target.");
+                // Log.Info($"dbName:{dbName} Initialize the db database and connect to the target.");
                 _scene = scene;
-                _mongoClient = DataBaseSetting.MongoDbCustomInitialize != null
-                    ? DataBaseSetting.MongoDbCustomInitialize(new DataBaseCustomConfig()
+                _mongoClient = Initializer.MongoDbCustomInitialize != null
+                    ? Initializer.MongoDbCustomInitialize(new DataBaseCustomConfig()
                     {
                         Scene = scene, ConnectionString = connectionString, DBName = dbName
                     })
@@ -72,6 +72,7 @@ namespace Fantasy.Database
             catch (Exception e)
             {
                 Log.Error($"dbName:{dbName} cannot connect to the database. Please check if the connectionString is correct or the network conditions.\n{e.Message}");
+                throw;
             }
             
             return this;
@@ -257,7 +258,7 @@ namespace Fantasy.Database
         {
             using (await _dataBaseLock.Wait(RandomHelper.RandInt64() % DefaultTaskSize))
             {
-                var count = await Count(filter);
+                var count = await Count(filter, collection);
                 var dates = await QueryByPage(filter, pageIndex, pageSize, isDeserialize, collection, scene);
                 return ((int)count, dates);
             }
@@ -279,7 +280,7 @@ namespace Fantasy.Database
         {
             using (await _dataBaseLock.Wait(RandomHelper.RandInt64() % DefaultTaskSize))
             {
-                var count = await Count(filter);
+                var count = await Count(filter, collection);
                 var dates = await QueryByPage(filter, pageIndex, pageSize, cols, isDeserialize, collection, scene);
                 return ((int)count, dates);
             }

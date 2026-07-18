@@ -4,11 +4,11 @@ using GameConfig;
 /// <summary>
 /// 配置加载器。
 /// </summary>
-public class ServerConfigSystem
+public class ConfigSystem
 {
-    private static ServerConfigSystem _instance;
+    private static ConfigSystem _instance;
 
-    public static ServerConfigSystem Instance => _instance ??= new ServerConfigSystem();
+    public static ConfigSystem Instance => _instance ??= new ConfigSystem();
 
     private bool _init = false;
 

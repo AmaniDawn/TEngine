@@ -16,7 +16,7 @@ namespace Fantasy
         /// <summary>
         /// Fantasy版本。
         /// </summary>
-        public const string VERSION = "Fantasy 2026.0.1007 Official version";
+        public const string VERSION = "Fantasy 2026.0.1023 Official version";
         /// <summary>
         /// 消息体最大长度(字节)。默认1024k。
         /// 注意:前后端设置的消息大小，一定要一样才可以，不然会不出现问题。
@@ -31,30 +31,64 @@ namespace Fantasy
         /// App程序Id。
         /// </summary>
         public static uint ProcessId { get; internal set; }
+        
         /// <summary>
         /// 应用程序的类型。
         /// </summary>
         public static string ProcessType { get; internal set; }
+        
         /// <summary>
         /// 服务器运行模式，获取或设置服务器的运行模式。
         /// </summary>
         public static ProcessMode RuntimeMode { get; internal set; }
+        
         /// <summary>
         /// 服务器启动组
         /// </summary>
         public static int StartupGroup { get; internal set; }
+        
         /// <summary>
         /// 会话空闲检查超时时间。
         /// </summary>
         public static int SessionIdleCheckerTimeout { get; internal set; }
+        
         /// <summary>
         /// 会话空闲检查间隔。
         /// </summary>
         public static int SessionIdleCheckerInterval { get; internal set; }
+        
         /// <summary>
         /// 内部网络通讯协议类型。
         /// </summary>
         public static NetworkProtocolType InnerNetwork { get; internal set; }
+        
+        /// <summary>
+        /// 默认Control Center批量心跳间隔，单位为秒。
+        /// </summary>
+        public const int DefaultControlCenterHeartbeatIntervalSeconds = 5;
+
+        /// <summary>
+        /// 默认Control Center服务实例租约时长，单位为秒。
+        /// </summary>
+        public const int DefaultControlCenterLeaseSeconds = 15;
+
+        /// <summary>
+        /// Control Center批量心跳间隔，单位为秒。
+        /// </summary>
+        public static int ControlCenterHeartbeatIntervalSeconds
+        {
+            get;
+            internal set;
+        } = DefaultControlCenterHeartbeatIntervalSeconds;
+
+        /// <summary>
+        /// Control Center服务实例租约时长，单位为秒。
+        /// </summary>
+        public static int ControlCenterLeaseSeconds
+        {
+            get;
+            internal set;
+        } = DefaultControlCenterLeaseSeconds;
 #endif
     }
 }

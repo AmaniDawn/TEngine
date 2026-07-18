@@ -76,23 +76,19 @@ namespace Fantasy.PacketParser
                     // 通过现代API直接读取协议编号、messagePacketLength protocolCode rpcId address
                     ref var messageRef = ref MemoryMarshal.GetArrayDataReference(MessageHead);
                     MessagePacketLength = Unsafe.ReadUnaligned<int>(ref messageRef);
+                    
                     // 检查消息体长度是否超出限制
-                    if (MessagePacketLength > ProgramDefine.MaxMessageSize)
+                    if (MessagePacketLength < -1 || MessagePacketLength > ProgramDefine.MaxMessageSize)
                     {
-                        throw new ScanException(
-                            $"The received information exceeds the maximum limit = {MessagePacketLength}");
+                        throw new ScanException($"The received information exceeds the maximum limit = {MessagePacketLength}");
                     }
 
                     PackInfo = InnerPackInfo.Create(Network);
-                    var memoryStream = PackInfo.RentMemoryStream(MemoryStreamBufferSource.UnPack,
-                        Packet.InnerPacketHeadLength + MessagePacketLength);
-                    PackInfo.RpcId =
-                        Unsafe.ReadUnaligned<uint>(ref Unsafe.Add(ref messageRef, Packet.InnerPacketRpcIdLocation));
-                    PackInfo.ProtocolCode =
-                        Unsafe.ReadUnaligned<uint>(ref Unsafe.Add(ref messageRef, Packet.PacketLength));
-                    PackInfo.Address =
-                        Unsafe.ReadUnaligned<long>(ref Unsafe.Add(ref messageRef,
-                            Packet.InnerPacketRouteAddressLocation));
+                    var messagePacketLength = MessagePacketLength == -1 ? 0 : MessagePacketLength;
+                    var memoryStream = PackInfo.RentMemoryStream(MemoryStreamBufferSource.UnPack, Packet.InnerPacketHeadLength + messagePacketLength);
+                    PackInfo.RpcId = Unsafe.ReadUnaligned<uint>(ref Unsafe.Add(ref messageRef, Packet.InnerPacketRpcIdLocation));
+                    PackInfo.ProtocolCode = Unsafe.ReadUnaligned<uint>(ref Unsafe.Add(ref messageRef, Packet.PacketLength));
+                    PackInfo.Address = Unsafe.ReadUnaligned<long>(ref Unsafe.Add(ref messageRef, Packet.InnerPacketRouteAddressLocation));
                     memoryStream.Write(MessageHead);
                     IsUnPackHead = false;
                     bufferLength -= copyLength;
@@ -145,7 +141,32 @@ namespace Fantasy.PacketParser
 
         public override MemoryStreamBuffer Pack(ref uint rpcId, ref long address, MemoryStreamBuffer memoryStream, IMessage message, Type messageType)
         {
-            return memoryStream == null ? Pack(ref rpcId, ref address, message, messageType) : Pack(ref rpcId, ref address, memoryStream);
+            if (memoryStream != null)
+            {
+                return memoryStream.MemoryStreamBufferSource == MemoryStreamBufferSource.MultiPack ? 
+                    CopyAndPack(ref rpcId, ref address, memoryStream) : 
+                    Pack(ref rpcId, ref address, memoryStream);
+            }
+            
+            memoryStream = Network.MemoryStreamBufferPool.RentMemoryStream(MemoryStreamBufferSource.Pack);
+            PackMemoryStream(ref rpcId, ref address, message, messageType, memoryStream);
+            return memoryStream;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private MemoryStreamBuffer CopyAndPack(ref uint rpcId, ref long address, MemoryStreamBuffer memoryStream)
+        {
+            var length = (int)memoryStream.Position;
+            var newBuffer = Network.MemoryStreamBufferPool.RentMemoryStream(MemoryStreamBufferSource.Pack, length);
+            newBuffer.Write(memoryStream.GetBuffer(), 0, length);
+            
+            var buffer = newBuffer.GetBuffer();
+            ref var bufferRef = ref MemoryMarshal.GetArrayDataReference(buffer);
+    
+            Unsafe.WriteUnaligned(ref Unsafe.Add(ref bufferRef, Packet.InnerPacketRpcIdLocation), rpcId);
+            Unsafe.WriteUnaligned(ref Unsafe.Add(ref bufferRef, Packet.InnerPacketRouteAddressLocation), address);
+    
+            return newBuffer;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -161,10 +182,9 @@ namespace Fantasy.PacketParser
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private MemoryStreamBuffer Pack(ref uint rpcId, ref long address, IMessage message, Type messageType)
+        public override void PackMemoryStream(ref uint rpcId, ref long address, IMessage message, Type messageType, MemoryStreamBuffer memoryStream)
         {
             var memoryStreamLength = 0;
-            var memoryStream = Network.MemoryStreamBufferPool.RentMemoryStream(MemoryStreamBufferSource.Pack);
             var opCode = message.OpCode();
             OpCodeIdStruct opCodeIdStruct = opCode;
             memoryStream.Seek(Packet.InnerPacketHeadLength, SeekOrigin.Begin);
@@ -188,7 +208,7 @@ namespace Fantasy.PacketParser
                 packetBodyCount = -1;
             }
             
-            if (packetBodyCount > ProgramDefine.MaxMessageSize)
+            if (packetBodyCount < -1 || packetBodyCount > ProgramDefine.MaxMessageSize)
             {
                 // 检查消息体长度是否超出限制
                 throw new Exception($"Message content exceeds {ProgramDefine.MaxMessageSize} bytes");
@@ -203,7 +223,6 @@ namespace Fantasy.PacketParser
             Unsafe.WriteUnaligned(ref Unsafe.Add(ref bufferRef, Packet.InnerPacketRouteAddressLocation), address);
             
             message.Dispose();
-            return memoryStream;
         }
     }
 #endif
@@ -243,7 +262,7 @@ namespace Fantasy.PacketParser
 #endif
                     MessagePacketLength = Unsafe.ReadUnaligned<int>(ref messageRef);
                     // 检查消息体长度是否超出限制
-                    if (MessagePacketLength > ProgramDefine.MaxMessageSize)
+                    if (MessagePacketLength < -1 || MessagePacketLength > ProgramDefine.MaxMessageSize)
                     {
                         throw new ScanException(
                             $"The received information exceeds the maximum limit = {MessagePacketLength}");
@@ -254,8 +273,9 @@ namespace Fantasy.PacketParser
                         Unsafe.ReadUnaligned<uint>(ref Unsafe.Add(ref messageRef, Packet.PacketLength));
                     PackInfo.RpcId =
                         Unsafe.ReadUnaligned<uint>(ref Unsafe.Add(ref messageRef, Packet.OuterPacketRpcIdLocation));
+                    var messagePacketLength = MessagePacketLength == -1 ? 0 : MessagePacketLength;
                     var memoryStream = PackInfo.RentMemoryStream(MemoryStreamBufferSource.UnPack,
-                        Packet.OuterPacketHeadLength + MessagePacketLength);
+                        Packet.OuterPacketHeadLength + messagePacketLength);
                     memoryStream.Write(MessageHead);
                     IsUnPackHead = false;
                     bufferLength -= copyLength;
@@ -307,7 +327,14 @@ namespace Fantasy.PacketParser
 
         public override MemoryStreamBuffer Pack(ref uint rpcId, ref long address, MemoryStreamBuffer memoryStream, IMessage message, Type messageType)
         {
-            return memoryStream == null ? Pack(ref rpcId, message, messageType) : Pack(ref rpcId, memoryStream);
+            if (memoryStream != null)
+            {
+                return Pack(ref rpcId, memoryStream);
+            }
+            
+            memoryStream = Network.MemoryStreamBufferPool.RentMemoryStream(MemoryStreamBufferSource.Pack);
+            PackMemoryStream(ref rpcId, ref address, message, messageType, memoryStream);
+            return memoryStream;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -325,10 +352,9 @@ namespace Fantasy.PacketParser
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private MemoryStreamBuffer Pack(ref uint rpcId, IMessage message, Type messageType)
+        public override void PackMemoryStream(ref uint rpcId, ref long address, IMessage message, Type messageType, MemoryStreamBuffer memoryStream)
         {
             var memoryStreamLength = 0;
-            var memoryStream = Network.MemoryStreamBufferPool.RentMemoryStream(MemoryStreamBufferSource.Pack);
             var opCode = message.OpCode();
             OpCodeIdStruct opCodeIdStruct = opCode;
             memoryStream.Seek(Packet.OuterPacketHeadLength, SeekOrigin.Begin);
@@ -351,7 +377,7 @@ namespace Fantasy.PacketParser
                 packetBodyCount = -1;
             }
             
-            if (packetBodyCount > ProgramDefine.MaxMessageSize)
+            if (packetBodyCount < -1 || packetBodyCount > ProgramDefine.MaxMessageSize)
             {
                 // 检查消息体长度是否超出限制
                 throw new Exception($"Message content exceeds {ProgramDefine.MaxMessageSize} bytes");
@@ -368,7 +394,6 @@ namespace Fantasy.PacketParser
             Unsafe.WriteUnaligned(ref Unsafe.Add(ref bufferRef, Packet.OuterPacketRpcIdLocation), rpcId);
             
             message.Dispose();
-            return memoryStream;
         }
     }
 }

@@ -137,21 +137,106 @@ public static void Error(string msg) { ... }
 
 ---
 
-## 使用示例
+### 4. Obfuz 包引用检查
 
-### 客户端监听服务器消息
+**检查内容**: 确认项目是否引入了 Obfuz 的包
+
+**检查步骤**:
+
+1. **检查 packages-lock.json 文件**
+   - 打开 Unity 项目根目录下的 `Packages/packages-lock.json` 文件
+   - 搜索 `com.code-philosophy.obfuz` 关键字
+   - 如果找到该引用，说明项目已引入 Obfuz 包
+
+   ```bash
+   # 或使用命令快速检查
+   grep "com.code-philosophy.obfuz" Packages/packages-lock.json
+   ```
+
+2. **添加 Obfuz.Runtime 引用**
+   - 如果项目引用了 Obfuz 包，需要在 `Fantasy.Unity.asmdef` 文件和 `Fantasy.Editor.asmdef` 文件中添加对 `Obfuz.Runtime` 的引用
+
+**修改方式**:
+
+- 在 `Assets/Scripts/HotFix/Fantasy.Unity/Editor/Runtime/Fantasy.Editor.asmdef` 文件的 `references` 数组中添加：
+
+```json
+{
+    "name": "Fantasy.Editor",
+    "references": [
+        "Fantasy.Unity",
+        "Obfuz.Runtime"
+    ],
+    ...
+}
+```
+
+- 在 `Assets/Scripts/HotFix/Fantasy.Unity/Fantasy.Unity.asmdef` 文件的 `references` 数组中添加：
+
+
+```json
+{
+    "name": "Fantasy.Unity",
+    "references": [
+        "Obfuz.Runtime"
+    ],
+    ...
+}
+```
+
+> **检查结果示例**:
+>
+> ```json
+> // packages-lock.json 中存在以下内容则需添加引用
+> "com.code-philosophy.obfuz": {
+> "version": "https://github.com/focus-creative-games/obfuz.git",
+> "depth": 0,
+> "source": "git",
+> ...
+> }
+> ```
+
+---
+
+### 5. ProtoBufHelper.cs - 添加协议消息日志回调支持
+
+**文件位置**: `Assets/Scripts/HotFix/Fantasy.Unity/Runtime/Core/Serialize/Pack/ProtoBufPack/ProtoBufHelper.cs`
+
+**修改内容**: 添加协议消息的收发日志回调，方便在运行时记录和监控网络协议数据。
+
+#### 5.1 添加 ProtocolLogHelper 区域（在文件末尾 `#endregion` 之前）
 
 ```csharp
-// 注册消息监听
-GameClient.Instance.RegisterMsgHandler.RegisterMsgHandler(protocolCode, (message) =>
-{
-    // 处理消息
-    var msg = (YourMessageType)message;
-    // ...
-});
+#region ProtocolLogHelper
 
-// 取消监听
-GameClient.Instance.UnRegisterMsgHandler.UnRegisterMsgHandler(protocolCode, handler);
+public static Action<Type, object> OnReceiveMessage { get; set; }
+
+public static Action<Type, object> OnSendMessage { get; set; }
+
+#endregion
+```
+
+#### 5.2 修改 Deserialize 方法（添加接收消息回调）
+
+```csharp
+/// <inheritdoc/>
+public object Deserialize(Type type, MemoryStreamBuffer buffer)
+{
+    var obj = _deserializes[type.TypeHandle](buffer);
+    OnReceiveMessage?.Invoke(type, obj);
+    return obj;
+}
+```
+
+#### 5.3 修改 Serialize 方法（添加发送消息回调）
+
+```csharp
+/// <inheritdoc/>
+public void Serialize(Type type, object @object, IBufferWriter<byte> buffer)
+{
+    OnSendMessage?.Invoke(type, @object);
+    _serializes[type.TypeHandle](buffer, @object);
+}
 ```
 
 ---
@@ -164,4 +249,6 @@ GameClient.Instance.UnRegisterMsgHandler.UnRegisterMsgHandler(protocolCode, hand
 - [ ] MessageDispatcherComponent.cs 中已添加 `#if FANTASY_UNITY` 代码块
 - [ ] `MessageHandler()` 方法中已添加客户端回调触发逻辑
 - [ ] **Fantasy.Log 中 `Debug`、`Info`、`Warning`、`Error` 方法已添加条件宏定义**（`Trace` 和 `TraceInfo` 除外），防止打包输出相关的Debug代码
+- [ ] 检查项目是否引入了 Obfuz 包，如果引用了，在 `Fantasy.Unity` 程序集和 `Fantasy.Editor` 程序集中添加 `Obfuz.Runtime` 引用
+- [ ] **ProtoBufHelper.cs 中已添加协议日志回调支持**，用于协议消息的收发日志记录
 - [ ] 编译无错误

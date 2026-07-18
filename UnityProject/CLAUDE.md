@@ -103,6 +103,32 @@ TEngine 基于 HybridCLR + YooAsset + UniTask + Luban 构建。
 
 ---
 
+## 🌐 Fantasy 服务器/网络开发
+
+> **Fantasy 域知识源**：`.claude/skills/fantasy-net/`（与 `tengine-dev` 分管不同代码域，不在 `tengine-dev` 覆盖范围）
+
+当任务涉及 Fantasy 服务器或 Unity 客户端 Fantasy 框架时，触发 `fantasy-net` skill：
+
+| 场景 | 入口文档 |
+|------|---------|
+| ECS 实体/组件/系统、Scene/SubScene | `references/ecs/index.md` |
+| 协议定义/导出（Outer/Inner/Address） | `references/protocol/index.md` |
+| 服务器搭建/Handler/HTTP/数据库 | `references/server/index.md`、`references/http.md`、`references/database/index.md` |
+| Address/Roaming 路由、跨服事件 | `references/server/address.md`、`references/server/roaming/index.md`、`references/server/sphere-event/index.md` |
+| 服务发现/动态 Scene 路由 | `references/service-discovery/index.md` |
+| Unity 客户端连接/Session/收消息 | `references/unity/index.md` |
+| Fantasy.config 配置 | `references/config.md` |
+| 定时器（FTask.Wait/OnceTimer/RepeatedTimer） | `references/timer/index.md` |
+
+```
+使用 Skill 工具，skill = "fantasy-net"
+描述需要查询的 Fantasy 技术问题
+```
+
+> **TEngine 集成位置**：Fantasy.Unity 在 `Assets/GameScripts/HotFix/Fantasy.Unity/`、服务器在 `GameServer/Server/`、客户端网络入口 `GameLogic/DataCenter/GameClient.cs`；更新 Fantasy 后需手动恢复的改动见 `GameLogic/DataCenter/ReadMe.md`。
+
+---
+
 ## 🔧 自我优化机制
 
 ### 问题记录
